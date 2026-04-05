@@ -32,7 +32,7 @@ Postman collection available in /api-docs folder.
 
 ## Installation
 
-git clone https://github.com/yourusername/ai-cms.git
+git clone https://github.com/hmhhbi/ai-cms.git
 cd ai-cms
 
 composer install
