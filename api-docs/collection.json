@@ -1,0 +1,145 @@
+{
+    "info": {
+        "_postman_id": "f95a7527-806f-4dc4-8f9a-8aee2986add1",
+        "name": "AI-CMS API DOCS",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "_exporter_id": "48312069",
+        "_collection_link": "https://go.postman.co/collection/48312069-f95a7527-806f-4dc4-8f9a-8aee2986add1?source=collection_link"
+    },
+    "item": [
+        {
+            "name": "http://ai-cms.test/api/register",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\r\n    \"name\": \"Test User2\",\r\n    \"email\": \"test2@test2.com\",\r\n    \"password\": \"test2@123\"\r\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "http://ai-cms.test/api/register",
+                    "protocol": "http",
+                    "host": ["ai-cms", "test"],
+                    "path": ["api", "register"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "http://ai-cms.test/api/login",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\r\n    \"email\": \"test2@test2.com\",\r\n    \"password\": \"test2@123\"\r\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "http://ai-cms.test/api/login",
+                    "protocol": "http",
+                    "host": ["ai-cms", "test"],
+                    "path": ["api", "login"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "http://ai-cms.test/api/tickets",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{your_token}}",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\r\n    \"subject\": \"There is an issue in Registering.\",\r\n    \"message\": \"I try to register for the third time but it is not registering me i can't figure it out what is the problem. i also attach the exact issue screenshot so tell what i do to register my self\"\r\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "http://ai-cms.test/api/tickets",
+                    "protocol": "http",
+                    "host": ["ai-cms", "test"],
+                    "path": ["api", "tickets"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "http://ai-cms.test/api/tickets",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{your_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "http://ai-cms.test/api/tickets",
+                    "protocol": "http",
+                    "host": ["ai-cms", "test"],
+                    "path": ["api", "tickets"]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "http://ai-cms.test/api/logout",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "http://ai-cms.test/api/logout",
+                    "protocol": "http",
+                    "host": ["ai-cms", "test"],
+                    "path": ["api", "logout"]
+                }
+            },
+            "response": []
+        }
+    ]
+}

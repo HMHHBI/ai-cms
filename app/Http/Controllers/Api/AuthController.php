@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\Company;
+use Illuminate\Support\Facades\Hash;
+
+class AuthController extends Controller
+{
+    public function register(Request $req)
+    {
+        $req->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|min:6'
+        ]);
+
+        $company = Company::firstOrCreate(
+            ['slug' => 'hassan-tech'], // Check if exists
+            ['name' => 'Hassan Tech']   // If not, create
+        );
+
+        $user = User::create([
+            'name' => $req->name,
+            'email' => $req->email,
+            'password' => Hash::make($req->password),
+            'company_id' => $company->id, // Automatic assignment
+            'role' => 'staff',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'user' => $user,
+            'token' => $user->createToken('api-token')->plainTextToken
+        ]);
+    }
+
+    public function login(Request $req)
+    {
+        $user = User::where('email', $req->email)->first();
+
+        if (!$user || !Hash::check($req->password, $user->password)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        return response()->json([
+            'status' => true,
+            'user' => $user,
+            'token' => $user->createToken('api-token')->plainTextToken
+        ]);
+    }
+
+    public function logout(Request $req)
+    {
+        $req->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Logged out'
+        ]);
+    }
+}
