@@ -12,4 +12,9 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
-require __DIR__.'/auth.php';
+Route::get('/deploy-db', function () {
+    \Illuminate\Support\Facades\Artisan::call('migrate --force');
+    return "Database Migrated Successfully!";
+});
+
+require __DIR__ . '/auth.php';
