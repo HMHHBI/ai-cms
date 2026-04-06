@@ -49,6 +49,9 @@ Run migrations:
 
 php artisan migrate
 
+## Setup
+![front](screenshot.png)
+
 ## Author
 
 Hassan - Laravel & AI Specialist
