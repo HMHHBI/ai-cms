@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Company;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -15,20 +16,21 @@ class AuthController extends Controller
         $req->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
-            'password' => 'required|min:6'
+            'password' => 'required|min:6',
+            'company_name' => ['required', 'string', 'max:255'],
         ]);
 
-        $company = Company::firstOrCreate(
-            ['slug' => 'hassan-tech'], // Check if exists
-            ['name' => 'Hassan Tech']   // If not, create
-        );
+        $company = Company::create([
+            'name' => $req->company_name,
+            'slug' => Str::slug($req->company_name),
+        ]);
 
         $user = User::create([
             'name' => $req->name,
             'email' => $req->email,
             'password' => Hash::make($req->password),
             'company_id' => $company->id, // Automatic assignment
-            'role' => 'staff',
+            'role' => 'admin',
         ]);
 
         return response()->json([

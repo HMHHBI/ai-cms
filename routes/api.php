@@ -2,9 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Api\AuthController;
-use App\Services\TicketService;
+use App\Http\Controllers\Api\TicketController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -16,20 +15,8 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
+// Purana code hata kar ye likhein
 Route::middleware('auth:sanctum')->group(function () {
-    // Ticket Create API
-    Route::post('/tickets', function (Request $request, TicketService $service) {
-        $validated = $request->validate([
-            'subject' => 'required|string|min:5',
-            'message' => 'required|string|min:10',
-        ]);
-
-        $ticket = $service->storeTicket($validated);
-        return response()->json(['status' => true, 'data' => $ticket]);
-    });
-
-    // Ticket List API
-    Route::get('/tickets', function () {
-        return response()->json(App\Models\Ticket::where('user_id', Auth::id())->latest()->get());
-    });
+    Route::get('/tickets', [TicketController::class, 'index']);
+    Route::post('/tickets', [TicketController::class, 'store']);
 });
