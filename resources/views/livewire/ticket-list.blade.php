@@ -7,10 +7,13 @@ use Illuminate\Support\Facades\Mail;
 new class extends Component {
   // List fetch karne ke liye
   public $selectedTicket = null;
+  public $editedReply = '';
+  public $filterMood = 'all';
 
   public function viewTicket($id)
   {
     $this->selectedTicket = Ticket::find($id);
+    $this->editedReply = $this->selectedTicket->ai_suggestion;
   }
 
   public function closeTicket($id)
@@ -19,26 +22,50 @@ new class extends Component {
     $this->selectedTicket = null;
   }
 
-  public function with()
+  public function with(\App\Services\TicketService $service)
   {
-    return [
-      'tickets' => Ticket::with('user')->where('user_id', Auth::id())->latest()->get(),
-    ];
+    $tickets = $service->getTicketsForUser(Auth::user());
+
+    if ($this->filterMood !== 'all') {
+      $tickets = $tickets->filter(function ($ticket) {
+        $suggestion = strtolower($ticket->ai_suggestion);
+
+        // Ye Regex dhoonde ga: 'sentiment' aur uske baad hamara 'filterMood' 
+        // Chahay darmiyan mein colon ho, space ho ya stars (**)
+        $pattern = "/sentiment.*" . preg_quote($this->filterMood, '/') . "/i";
+
+        return preg_match($pattern, $suggestion);
+      });
+    }
+
+    return ['tickets' => $tickets];
   }
 
   public function approveAndSend($ticketId)
   {
     $ticket = Ticket::with('user')->find($ticketId);
 
+    $customerName = $ticket->user ? $ticket->user->name : $ticket->customer_name;
+    $customerEmail = $ticket->user ? $ticket->user->email : $ticket->customer_email;
+
+    if (!$customerEmail) {
+      session()->flash('error', 'No email address found for this ticket!');
+      return;
+    }
+
     // Asli Email Logic
-    Mail::raw("Hi {$ticket->user->name}, \n\n{$ticket->ai_suggestion}", function ($message) use ($ticket) {
-      $message->to($ticket->user->email)
+    Mail::raw("Hi {$customerName}, \n\n{$this->editedReply}", function ($message) use ($ticket, $customerEmail) {
+      $message->to($customerEmail)
         ->subject('Support Reply: ' . $ticket->subject);
     });
 
-    $ticket->update(['status' => 'closed']);
+    $ticket->update([
+      'status' => 'closed',
+      'ai_suggestion' => $this->editedReply
+    ]);
 
-    session()->flash('status', 'Email sent and ticket closed!');
+    $this->selectedTicket = null;
+    session()->flash('status', 'Email sent to ' . $customerEmail . ' and ticket closed!');
   }
 
   public function deleteTicket($id)
@@ -49,67 +76,154 @@ new class extends Component {
       session()->flash('status', 'Ticket deleted successfully!');
     }
   }
+
+  public function assignTicket($ticketId, $staffId)
+  {
+    // Debugging ke liye (Optional): Agar staffId 0 ya empty hai toh update na kare
+    if (empty($staffId)) {
+      $staffId = null;
+    }
+
+    $ticket = Ticket::find($ticketId);
+
+    if ($ticket && $ticket->company_id === Auth::user()->company_id) {
+      $ticket->assigned_to = $staffId;
+      $ticket->save(); // Update ke bajaye save() use karein for better tracking
+
+      session()->flash('status', 'Ticket updated successfully!');
+    }
+  }
+
+  public function claimTicket($ticketId)
+  {
+    $ticket = Ticket::find($ticketId);
+    if ($ticket && !$ticket->assigned_to) {
+      $ticket->update(['assigned_to' => Auth::id()]);
+      session()->flash('status', 'Ticket claimed! It is now in your list.');
+    }
+  }
+
+  public function closeDetails()
+  {
+    $this->selectedTicket = null;
+    $this->editedReply = '';
+  }
 }; ?>
 
 <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+  <div class="flex justify-center m-6">
+    <div class="inline-flex gap-2 bg-gray-100 dark:bg-gray-700 p-1.5 rounded-full shadow-sm">
+
+      <button wire:click="$set('filterMood', 'all')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
+      {{ $filterMood == 'all'
+  ? 'bg-gray-800 text-white shadow'
+  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
+        All
+      </button>
+
+      <button wire:click="$set('filterMood', 'negative')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
+      {{ $filterMood == 'negative'
+  ? 'bg-red-600 text-white shadow'
+  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
+        Urgent 🔥
+      </button>
+
+      <button wire:click="$set('filterMood', 'neutral')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
+      {{ $filterMood == 'neutral'
+  ? 'bg-green-600 text-white shadow'
+  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
+        Neutral 😐
+      </button>
+
+      <button wire:click="$set('filterMood', 'positive')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
+      {{ $filterMood == 'positive'
+  ? 'bg-green-600 text-white shadow'
+  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
+        Happy 😊
+      </button>
+
+    </div>
+  </div>
   <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
     <thead class="bg-gray-50 dark:bg-gray-700">
       <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket Info</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AI Suggestion</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail</th>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mood</th>
+        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
       @foreach($tickets as $ticket)
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-          <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{{ $ticket->subject }}</td>
-          <td class="px-6 py-4 text-sm">
+          <td class="px-6 py-4">
+            <div class="text-sm font-bold text-gray-900 dark:text-white">{{ $ticket->subject }}</div>
+            <div class="text-xs text-gray-500 italic">From: {{ $ticket->user->name ?? $ticket->customer_name ?? 'Guest' }}
+            </div>
+          </td>
+
+          <td class="px-6 py-4">
+            @if(auth()->user()->role === 'admin')
+              <select wire:change="assignTicket({{ $ticket->id }}, $event.target.value)"
+                class="text-xs rounded-lg border-gray-300 dark:bg-gray-700 dark:text-gray-300 py-1">
+                <option value="">Unassigned</option>
+                @foreach(\App\Models\User::where('company_id', auth()->user()->company_id)->where('role', 'staff')->get() as $staff)
+                  <option value="{{ $staff->id }}" {{ $ticket->assigned_to == $staff->id ? 'selected' : '' }}>
+                    {{ $staff->name }}
+                  </option>
+                @endforeach
+              </select>
+            @else
+              @if($ticket->assigned_to == auth()->id())
+                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Your Task</span>
+              @else
+                <button wire:click="claimTicket({{ $ticket->id }})"
+                  class="text-xs bg-indigo-500 text-white px-2 py-1 rounded hover:bg-indigo-600">
+                  Claim Ticket
+                </button>
+              @endif
+            @endif
+          </td>
+
+          <td class="px-6 py-4">
             <span
-              class="px-2 py-1 rounded text-xs {{ $ticket->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+              class="px-2 py-1 rounded-full text-xs font-semibold {{ $ticket->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
               {{ ucfirst($ticket->status) }}
             </span>
           </td>
-          <td class="px-6 py-4 text-sm text-gray-500 italic">
-            {{ Str::limit($ticket->ai_suggestion, 50) }}
-          </td>
-          <td class="px-6 py-4 text-sm">
-            <div class="flex gap-2">
-              <button wire:click="viewTicket({{ $ticket->id }})"
-                class="ml-2 bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">
-                View & Reply
-              </button>
-              @if(auth()->user()->role === 'admin')
-                <button wire:click="approveAndSend({{ $ticket->id }})"
-                  class="ml-2 bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700"
-                  onclick="confirm('Are you sure you want to send this AI reply?') || event.stopImmediatePropagation()">
-                  Approve & Send Email
-                </button>
-              @else
-                <span class="text-xs text-gray-400 italic">Waiting for Admin Approval</span>
-              @endif
-              @if(auth()->user()->role === 'admin')
-                <button wire:click="deleteTicket({{ $ticket->id }})"
-                  wire:confirm="Are you sure you want to delete this ticket?"
-                  class="ml-2 text-red-600 hover:text-red-900 transition" title="Delete Ticket">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              @endif
-            </div>
-          </td>
-          <td class="px-6 py-4 text-sm font-bold">
-            @if(Str::contains(strtolower($ticket->ai_suggestion), 'negative'))
-              <span class="text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">🔥 Urgent / Angry</span>
-            @elseif(Str::contains(strtolower($ticket->ai_suggestion), 'positive'))
-              <span class="text-green-600 bg-green-100 px-2 py-1 rounded-full text-xs">😊 Happy Customer</span>
+
+          <td class="px-6 py-4">
+            @php
+              $suggestion = strtolower($ticket->ai_suggestion);
+              // Hum check kar rahe hain ke 'sentiment' ke foran baad kya word hai
+              $isNegative = preg_match('/sentiment:.*negative/i', $suggestion);
+              $isPositive = preg_match('/sentiment:.*positive/i', $suggestion);
+              $isNeutral = preg_match('/sentiment:.*neutral/i', $suggestion);
+            @endphp
+
+            @if($isNegative)
+              <span class="text-red-600 text-xs font-bold">🔥 Urgent</span>
+            @elseif($isPositive)
+              <span class="text-green-600 text-xs font-bold">😊 Happy</span>
+            @elseif($isNeutral)
+              <span class="text-blue-600 text-xs font-bold">😐 Neutral</span>
             @else
-              <span class="text-blue-600 bg-blue-100 px-2 py-1 rounded-full text-xs">😐 Neutral</span>
+              <span class="text-gray-400 text-xs">Unknown</span>
+            @endif
+          </td>
+
+          <td class="px-6 py-4 text-right space-x-2">
+            <button wire:click="viewTicket({{ $ticket->id }})"
+              class="text-indigo-600 hover:text-indigo-900 text-xs font-bold uppercase">View</button>
+            @if(auth()->user()->role === 'admin')
+              <button wire:click="deleteTicket({{ $ticket->id }})" class="text-red-500 hover:text-red-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
             @endif
           </td>
         </tr>
@@ -117,42 +231,53 @@ new class extends Component {
     </tbody>
   </table>
   @if($selectedTicket)
-    <div class="mt-8 p-6 bg-indigo-50 border-l-4 border-indigo-500 rounded shadow-md dark:bg-gray-700">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold text-indigo-900 dark:text-indigo-100">
-          Ticket Details: {{ $selectedTicket->subject }}
-        </h3>
-        <button wire:click="$set('selectedTicket', null)" class="text-gray-500 hover:text-red-500">
-          ✖ Close
-        </button>
-      </div>
+    <div
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
 
-      <div class="space-y-4">
-        <div>
-          <span class="font-bold text-gray-700 dark:text-gray-300">Customer Message:</span>
-          <p class="mt-1 p-3 bg-white dark:bg-gray-900 rounded border dark:text-gray-200">
-            {{ $selectedTicket->message }}
-          </p>
-        </div>
+      <div
+        class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 border-t-2 border-indigo-600">
 
-        <div>
-          <span class="font-bold text-gray-700 dark:text-gray-300">AI Suggested Reply:</span>
-          <div
-            class="mt-1 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded text-green-900 dark:text-green-100">
-            {!! nl2br(e($selectedTicket->ai_suggestion)) !!}
+        <div class="flex justify-between items-start mb-6">
+          <div>
+            <h5 class="text-xl font-bold text-gray-900 dark:text-indigo-100 leading-tight">
+              Ticket Details: {{ $selectedTicket->subject }}
+            </h5>
+            <p class="text-sm text-indigo-600 font-medium">Ticket #{{ $selectedTicket->id }}</p>
           </div>
+          <button wire:click="closeDetails" class="text-gray-400 hover:text-gray-600 transition">
+            <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        <div class="flex gap-2">
-          <button wire:click="approveAndSend({{ $selectedTicket->id }})"
-            class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
-            Confirm & Send this Reply
-          </button>
+        <div class="space-y-6">
+          <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100">
+            <span class="text-xs font-bold uppercase text-gray-400 tracking-wider">Customer Message</span>
+            <p class="mt-2 text-gray-700 dark:text-gray-300 leading-relaxed italic">
+              "{{ $selectedTicket->message }}"
+            </p>
+          </div>
 
-          <button wire:click="closeTicket({{ $selectedTicket->id }})"
-            class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
-            Mark as Resolved (Close)
-          </button>
+          <div>
+            <label class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
+              ✍️ Official Response (AI Generated)
+            </label>
+            <textarea wire:model.blur="editedReply" rows="8"
+              class="block w-full rounded-xl border-gray-200 dark:bg-gray-900 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-4 mt-2 text-gray-700 dark:text-gray-300 leading-relaxed italic"></textarea>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-4 border-t">
+            <button wire:click="closeDetails"
+              class="px-6 py-2.5 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition">
+              Cancel
+            </button>
+            <button wire:click="approveAndSend({{ $selectedTicket->id }})"
+              class="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition flex items-center">
+              <span wire:loading.remove wire:target="approveAndSend">Approve & Send Email</span>
+              <span wire:loading wire:target="approveAndSend">Sending...</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 <?php
 use Livewire\Volt\Component;
+use Illuminate\Support\Facades\Auth;
 
 new class extends Component {
     public string $subject = '';
@@ -12,7 +13,7 @@ new class extends Component {
             'message' => 'required|min:10',
         ]);
 
-        $service->storeTicket([
+        $service->createTicket(Auth::user(), [
             'subject' => $this->subject,
             'message' => $this->message,
         ]);
