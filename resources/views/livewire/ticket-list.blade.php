@@ -3,12 +3,20 @@ use Livewire\Volt\Component;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 new class extends Component {
   // List fetch karne ke liye
   public $selectedTicket = null;
   public $editedReply = '';
   public $filterMood = 'all';
+  public $search = '';
+  public $showClosed = false;
+
+  public function updatingSearch()
+  {
+
+  }
 
   public function viewTicket($id)
   {
@@ -25,6 +33,20 @@ new class extends Component {
   public function with(\App\Services\TicketService $service)
   {
     $tickets = $service->getTicketsForUser(Auth::user());
+
+    if (!$this->showClosed) {
+      $tickets = $tickets->where('status', 'open');
+    } else {
+      $tickets = $tickets->where('status', 'closed');
+    }
+
+    if ($this->search !== '') {
+      $tickets = $tickets->filter(function ($ticket) {
+        return Str::contains(strtolower($ticket->subject), strtolower($this->search)) ||
+          Str::contains(strtolower($ticket->customer_name ?? ''), strtolower($this->search)) ||
+          Str::contains(strtolower($ticket->customer_email ?? ''), strtolower($this->search));
+      });
+    }
 
     if ($this->filterMood !== 'all') {
       $tickets = $tickets->filter(function ($ticket) {
@@ -111,37 +133,40 @@ new class extends Component {
 }; ?>
 
 <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-  <div class="flex justify-center m-6">
-    <div class="inline-flex gap-2 bg-gray-100 dark:bg-gray-700 p-1.5 rounded-full shadow-sm">
-
-      <button wire:click="$set('filterMood', 'all')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
-      {{ $filterMood == 'all'
-  ? 'bg-gray-800 text-white shadow'
-  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
-        All
+  <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+    <div class="relative w-full md:w-1/2">
+      <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </span>
+      <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search by subject, name or email..."
+        class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm transition duration-150 ease-in-out">
+    </div>
+    <div class="flex border-b border-gray-100 dark:border-gray-700 px-6">
+      <button wire:click="$set('showClosed', false)"
+        class="py-4 px-6 text-sm font-bold border-b-2 transition {{ !$showClosed ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400' }}">
+        📥 Active Inbox
       </button>
-
-      <button wire:click="$set('filterMood', 'negative')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
-      {{ $filterMood == 'negative'
-  ? 'bg-red-600 text-white shadow'
-  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
-        Urgent 🔥
+      <button wire:click="$set('showClosed', true)"
+        class="py-4 px-6 text-sm font-bold border-b-2 transition {{ $showClosed ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400' }}">
+        📁 Closed Archive
       </button>
+    </div>
 
-      <button wire:click="$set('filterMood', 'neutral')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
-      {{ $filterMood == 'neutral'
-  ? 'bg-green-600 text-white shadow'
-  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
-        Neutral 😐
-      </button>
-
-      <button wire:click="$set('filterMood', 'positive')" class="text-xs px-4 py-1.5 rounded-full font-medium transition
-      {{ $filterMood == 'positive'
-  ? 'bg-green-600 text-white shadow'
-  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
-        Happy 😊
-      </button>
-
+    <div class="inline-flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-full shadow-inner">
+      <button wire:click="$set('filterMood', 'all')"
+        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'all' ? 'bg-white shadow text-indigo-600' : 'text-gray-500' }}">ALL</button>
+      <button wire:click="$set('filterMood', 'negative')"
+        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'negative' ? 'bg-red-500 text-white' : 'text-gray-500' }}">URGENT
+        🔥</button>
+      <button wire:click="$set('filterMood', 'neutral')"
+        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'neutral' ? 'bg-blue-500 text-white' : 'text-gray-500' }}">NEUTRAL
+        😐</button>
+      <button wire:click="$set('filterMood', 'positive')"
+        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'positive' ? 'bg-green-500 text-white' : 'text-gray-500' }}">HAPPY
+        😊</button>
     </div>
   </div>
   <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -152,6 +177,7 @@ new class extends Component {
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mood</th>
         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Received</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -226,8 +252,19 @@ new class extends Component {
               </button>
             @endif
           </td>
+          <td class="px-6 py-4 text-xs font-medium">
+            @php
+              $hoursOld = $ticket->created_at->diffInHours(now());
+            @endphp
+
+            <span
+              class="{{ ($hoursOld > 24 && $ticket->status == 'open') ? 'text-red-600 font-bold animate-pulse' : 'text-gray-500' }}">
+              {{ $ticket->created_at->diffForHumans() }}
+            </span>
+          </td>
         </tr>
       @endforeach
+
     </tbody>
   </table>
   @if($selectedTicket)
