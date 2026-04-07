@@ -11,7 +11,7 @@
 
     // AI Mood Logic (Negative Sentiment)
     $urgentTickets = (clone $query)->where('status', 'open')
-        ->where('ai_suggestion', 'LIKE', '%negative%')
+        ->where('ai_sentiment', 'negative')
         ->count();
 
     // Resolved Today
@@ -39,43 +39,42 @@
 
     <div class="py-12 bg-gray-100 min-h-screen">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-    <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-indigo-500">
-        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Volume</p>
-        <div class="flex items-center justify-between mt-2">
-            <p class="text-3xl font-black text-gray-800">{{ $totalTickets }}</p>
-            <span class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">📊</span>
-        </div>
-    </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-indigo-500">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Volume</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <p class="text-3xl font-black text-gray-800">{{ $totalTickets }}</p>
+                        <span class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">📊</span>
+                    </div>
+                </div>
 
-    <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-green-500">
-        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Currently Open</p>
-        <div class="flex items-center justify-between mt-2">
-            <p class="text-3xl font-black text-gray-800">{{ $openTickets }}</p>
-            <span class="p-2 bg-green-50 text-green-600 rounded-lg">📬</span>
-        </div>
-    </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-green-500">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Currently Open</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <p class="text-3xl font-black text-gray-800">{{ $openTickets }}</p>
+                        <span class="p-2 bg-green-50 text-green-600 rounded-lg">📬</span>
+                    </div>
+                </div>
 
-    <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-red-500 animate-pulse">
-        <p class="text-xs font-bold text-red-500 uppercase tracking-wider">🔥 AI Urgent Alert</p>
-        <div class="flex items-center justify-between mt-2">
-            <p class="text-3xl font-black text-red-600">{{ $urgentTickets }}</p>
-            <div class="text-right">
-                <span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Action Required</span>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-red-500 animate-pulse">
+                    <p class="text-xs font-bold text-red-500 uppercase tracking-wider">🔥 AI Urgent Alert</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <p class="text-3xl font-black text-red-600">{{ $urgentTickets }}</p>
+                        <div class="text-right">
+                            <span class="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">Action
+                                Required</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-purple-500">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Resolved Today</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <p class="text-3xl font-black text-gray-800">{{ $resolvedToday }}</p>
+                        <span class="p-2 bg-purple-50 text-purple-600 rounded-lg">✅</span>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-
-    <div class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-purple-500">
-        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Resolved Today</p>
-        <div class="flex items-center justify-between mt-2">
-            <p class="text-3xl font-black text-gray-800">{{ $resolvedToday }}</p>
-            <span class="p-2 bg-purple-50 text-purple-600 rounded-lg">✅</span>
-        </div>
-    </div>
-</div>
-
-           
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
 

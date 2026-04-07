@@ -18,6 +18,15 @@ new class extends Component {
 
   }
 
+  public function updatedEditedReply($value)
+  {
+    if ($this->selectedTicket) {
+      Ticket::find($this->selectedTicket['id'])->update([
+        'ai_suggestion' => $value
+      ]);
+    }
+  }
+
   public function viewTicket($id)
   {
     $this->selectedTicket = Ticket::find($id);
@@ -28,44 +37,49 @@ new class extends Component {
   {
     Ticket::find($id)->update(['status' => 'closed']);
     $this->selectedTicket = null;
+    session()->flash('status', 'Ticket closed successfully.');
   }
 
-  public function with(\App\Services\TicketService $service)
+  public function with(\App\Services\TicketService $query)
   {
-    $tickets = $service->getTicketsForUser(Auth::user());
+    // Base Query fetch karein
+    $query = Ticket::where('company_id', Auth::user()->company_id);
 
-    if (!$this->showClosed) {
-      $tickets = $tickets->where('status', 'open');
-    } else {
-      $tickets = $tickets->where('status', 'closed');
-    }
+    // 1. Status Filter
+    $query = $this->showClosed ? $query->where('status', 'closed') : $query->where('status', 'open');
 
-    if ($this->search !== '') {
-      $tickets = $tickets->filter(function ($ticket) {
-        return Str::contains(strtolower($ticket->subject), strtolower($this->search)) ||
-          Str::contains(strtolower($ticket->customer_name ?? ''), strtolower($this->search)) ||
-          Str::contains(strtolower($ticket->customer_email ?? ''), strtolower($this->search));
-      });
-    }
-
+    // 2. Mood Filter (Direct Database Column se)
     if ($this->filterMood !== 'all') {
-      $tickets = $tickets->filter(function ($ticket) {
-        $suggestion = strtolower($ticket->ai_suggestion);
+      $query = $query->where('ai_sentiment', $this->filterMood);
+    }
 
-        // Ye Regex dhoonde ga: 'sentiment' aur uske baad hamara 'filterMood' 
-        // Chahay darmiyan mein colon ho, space ho ya stars (**)
-        $pattern = "/sentiment.*" . preg_quote($this->filterMood, '/') . "/i";
-
-        return preg_match($pattern, $suggestion);
+    // 3. Search Logic
+    if ($this->search !== '') {
+      $query = $query->where(function ($q) {
+        $term = '%' . $this->search . '%';
+        $q->where('subject', 'like', $term)
+          ->orWhere('id', 'like', $term)
+          ->orWhere('message', 'like', $term)
+          ->orWhere('customer_name', 'like', $term)
+          ->orWhere('customer_email', 'like', $term);
       });
     }
 
-    return ['tickets' => $tickets];
+    // 4. Role-based restrictions (Staff vs Admin)
+    if (Auth::user()->role !== 'admin') {
+      $query->where(function ($q) {
+        $q->where('user_id', Auth::id())
+          ->orWhere('assigned_to', Auth::id())
+          ->orWhereNull('assigned_to');
+      });
+    }
+
+    return ['tickets' => $query->latest()->get()];
   }
 
   public function approveAndSend($ticketId)
   {
-    $ticket = Ticket::with('user')->find($ticketId);
+    $ticket = Ticket::find($ticketId);
 
     $customerName = $ticket->user ? $ticket->user->name : $ticket->customer_name;
     $customerEmail = $ticket->user ? $ticket->user->email : $ticket->customer_email;
@@ -133,18 +147,8 @@ new class extends Component {
 }; ?>
 
 <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-  <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-    <div class="relative w-full md:w-1/2">
-      <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </span>
-      <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search by subject, name or email..."
-        class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm transition duration-150 ease-in-out">
-    </div>
-    <div class="flex border-b border-gray-100 dark:border-gray-700 px-6">
+  <div class="bg-white dark:bg-gray-800 border-b border-gray-100">
+    <div class="flex justify-center border-b border-gray-100 dark:border-gray-700 px-6">
       <button wire:click="$set('showClosed', false)"
         class="py-4 px-6 text-sm font-bold border-b-2 transition {{ !$showClosed ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-400' }}">
         📥 Active Inbox
@@ -155,18 +159,31 @@ new class extends Component {
       </button>
     </div>
 
-    <div class="inline-flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-full shadow-inner">
-      <button wire:click="$set('filterMood', 'all')"
-        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'all' ? 'bg-white shadow text-indigo-600' : 'text-gray-500' }}">ALL</button>
-      <button wire:click="$set('filterMood', 'negative')"
-        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'negative' ? 'bg-red-500 text-white' : 'text-gray-500' }}">URGENT
-        🔥</button>
-      <button wire:click="$set('filterMood', 'neutral')"
-        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'neutral' ? 'bg-blue-500 text-white' : 'text-gray-500' }}">NEUTRAL
-        😐</button>
-      <button wire:click="$set('filterMood', 'positive')"
-        class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'positive' ? 'bg-green-500 text-white' : 'text-gray-500' }}">HAPPY
-        😊</button>
+    <div class="p-6 flex flex-col lg:flex-row justify-between items-center gap-4">
+      <div class="relative w-full lg:w-1/2">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </span>
+        <input wire:model.live.debounce.300ms="search" type="text" placeholder="Search customer, subject..."
+          class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-xl leading-5 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-indigo-500 sm:text-sm transition">
+      </div>
+
+      <div class="inline-flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-full shadow-inner">
+        <button wire:click="$set('filterMood', 'all')"
+          class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'all' ? 'bg-white shadow text-indigo-600' : 'text-gray-500' }}">ALL</button>
+        <button wire:click="$set('filterMood', 'negative')"
+          class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'negative' ? 'bg-red-500 text-white' : 'text-gray-500' }}">URGENT
+          🔥</button>
+        <button wire:click="$set('filterMood', 'neutral')"
+          class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'neutral' ? 'bg-blue-500 text-white' : 'text-gray-500' }}">NEUTRAL
+          😐</button>
+        <button wire:click="$set('filterMood', 'positive')"
+          class="text-[10px] px-3 py-1.5 rounded-full font-bold transition {{ $filterMood == 'positive' ? 'bg-green-500 text-white' : 'text-gray-500' }}">HAPPY
+          😊</button>
+      </div>
     </div>
   </div>
   <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -213,26 +230,25 @@ new class extends Component {
           </td>
 
           <td class="px-6 py-4">
-            <span
-              class="px-2 py-1 rounded-full text-xs font-semibold {{ $ticket->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-              {{ ucfirst($ticket->status) }}
-            </span>
+            <div class="flex flex-col gap-1">
+              <span
+                class="px-2 py-0.5 rounded-full text-[10px] font-bold text-center uppercase {{ $ticket->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                {{ $ticket->status }}
+              </span>
+
+              <span
+                class="px-2 py-0.5 rounded-full text-[10px] font-bold text-center uppercase border {{ $ticket->priority_color }}">
+                {{ $ticket->priority ?? 'Normal' }}
+              </span>
+            </div>
           </td>
 
           <td class="px-6 py-4">
-            @php
-              $suggestion = strtolower($ticket->ai_suggestion);
-              // Hum check kar rahe hain ke 'sentiment' ke foran baad kya word hai
-              $isNegative = preg_match('/sentiment:.*negative/i', $suggestion);
-              $isPositive = preg_match('/sentiment:.*positive/i', $suggestion);
-              $isNeutral = preg_match('/sentiment:.*neutral/i', $suggestion);
-            @endphp
-
-            @if($isNegative)
+            @if($ticket->mood === 'negative')
               <span class="text-red-600 text-xs font-bold">🔥 Urgent</span>
-            @elseif($isPositive)
+            @elseif($ticket->mood === 'positive')
               <span class="text-green-600 text-xs font-bold">😊 Happy</span>
-            @elseif($isNeutral)
+            @elseif($ticket->mood === 'neutral')
               <span class="text-blue-600 text-xs font-bold">😐 Neutral</span>
             @else
               <span class="text-gray-400 text-xs">Unknown</span>
@@ -300,7 +316,7 @@ new class extends Component {
             <label class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">
               ✍️ Official Response (AI Generated)
             </label>
-            <textarea wire:model.blur="editedReply" rows="8"
+            <textarea wire:model.live="editedReply" rows="8"
               class="block w-full rounded-xl border-gray-200 dark:bg-gray-900 dark:border-gray-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-4 mt-2 text-gray-700 dark:text-gray-300 leading-relaxed italic"></textarea>
           </div>
 
