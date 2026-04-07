@@ -1,42 +1,23 @@
-# PHP 8.4 with Apache use karein
-FROM php:8.4-apache
+FROM php:8.2-apache
 
-# Zaroori Extensions install karein
-RUN apt-get update && apt-get install -y \
-  libpng-dev \
-  libonig-dev \
-  libxml2-dev \
-  zip \
-  unzip \
-  git \
-  curl
+# Apache fix (IMPORTANT)
+RUN a2dismod mpm_event \
+  && a2dismod mpm_worker \
+  && a2enmod mpm_prefork
 
-# PHP extensions install karein
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+# PHP extensions
+RUN docker-php-ext-install pdo pdo_mysql
 
-# Apache rewrite module enable karein (Laravel routes ke liye)
+# Enable rewrite
 RUN a2enmod rewrite
 
-# Working directory set karein
+# Set working dir
 WORKDIR /var/www/html
 
-# Project files copy karein
+# Copy project
 COPY . .
 
-# Composer install karein
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --optimize-autoloader
+# Permissions
+RUN chown -R www-data:www-data /var/www/html
 
-# Permissions set karein
-RUN chown -R www-data:www-data storage bootstrap/cache
-
-# Apache document root ko 'public' folder par set karein
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-# Port 80 open karein
 EXPOSE 80
-
-# Apache start karein
-CMD ["apache2-foreground"]
