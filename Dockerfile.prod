@@ -1,32 +1,28 @@
-
-# Base PHP CLI image
 FROM php:8.2-cli
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y unzip curl git libzip-dev \
+# Install system dependencies & Node.js
+RUN apt-get update && apt-get install -y \
+  unzip curl git libzip-dev nodejs npm \
   && docker-php-ext-install pdo pdo_mysql zip
 
 # Install composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory
 WORKDIR /app
-
-# Copy project files
 COPY . .
 
-# Install Laravel dependencies
+# Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Storage & cache directories (permissions)
+# 💡 VITE FIX: Install Node dependencies and build assets
+RUN npm install
+RUN npm run build
+
+# Permissions
 RUN mkdir -p storage/framework/{sessions,views,cache} \
   && chmod -R 775 storage bootstrap/cache
 
-# Automatically run migrations (no shell required)
-RUN php artisan migrate --force
-
-# Start Laravel built-in server on Railway PORT
+# Optimized Start Command
 CMD php artisan config:clear && php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT}
 
-# Expose port 80
 EXPOSE 80
