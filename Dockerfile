@@ -1,9 +1,17 @@
 FROM php:8.2-apache
 
-# 🔥 FIX MPM ERROR
-RUN a2dismod mpm_event \
-    && a2dismod mpm_worker \
-    && a2enmod mpm_prefork
+# 🔥 HARD FIX: remove all MPM conflicts
+RUN a2dismod mpm_event || true
+RUN a2dismod mpm_worker || true
+
+# Ensure only prefork is enabled
+RUN a2enmod mpm_prefork
+
+# Remove conflicting configs (IMPORTANT)
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.load
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.conf
+RUN rm -f /etc/apache2/mods-enabled/mpm_worker.load
+RUN rm -f /etc/apache2/mods-enabled/mpm_worker.conf
 
 # Laravel requirements
 RUN docker-php-ext-install pdo pdo_mysql
