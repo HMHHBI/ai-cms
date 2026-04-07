@@ -1,9 +1,9 @@
+
 # Base PHP CLI image
 FROM php:8.2-cli
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-  unzip curl git libzip-dev \
+# Install system dependencies
+RUN apt-get update && apt-get install -y unzip curl git libzip-dev \
   && docker-php-ext-install pdo pdo_mysql zip
 
 # Install composer
@@ -12,18 +12,21 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /app
 
-# Copy project
+# Copy project files
 COPY . .
 
 # Install Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Ensure storage & cache directories exist
+# Storage & cache directories (permissions)
 RUN mkdir -p storage/framework/{sessions,views,cache} \
   && chmod -R 775 storage bootstrap/cache
 
-# Start Laravel built-in server
-CMD php artisan serve --host=0.0.0.0 --port=80
+# Automatically run migrations (no shell required)
+RUN php artisan migrate --force
+
+# Start Laravel built-in server on Railway PORT
+CMD php artisan serve --host=0.0.0.0 --port=${PORT}
 
 # Expose port 80
 EXPOSE 80
