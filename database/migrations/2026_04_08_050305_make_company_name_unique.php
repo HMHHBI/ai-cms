@@ -1,0 +1,34 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('companies', function (Blueprint $table) {
+            // Pehle agar koi purana index hai toh usay drop karein (taake error na aaye)
+            $table->dropUnique(['name']);
+            $table->dropUnique(['slug']);
+        });
+
+        Schema::table('companies', function (Blueprint $table) {
+            // Ab fresh unique constraints lagayein
+            $table->string('name')->unique()->change();
+            $table->string('slug')->unique()->change();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        //
+    }
+};

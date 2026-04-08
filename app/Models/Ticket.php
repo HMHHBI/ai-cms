@@ -27,7 +27,7 @@ class Ticket extends Model
 
     public function company()
     {
-        return $this->belongsTo(Company::class); // 👈 ADD THIS
+        return $this->belongsTo(Company::class);
     }
 
     public function getPriorityColorAttribute()
