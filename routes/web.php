@@ -8,6 +8,7 @@ use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\StaffController;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Mail;
 
 Route::view('/', 'welcome');
 
@@ -48,6 +49,18 @@ Route::middleware(['auth', 'check_status'])->group(function () {
         Route::post('/admin/staff', [StaffController::class, 'store'])->name('admin.staff.store');
         Route::delete('/admin/staff/{user}', [StaffController::class, 'destroy'])->name('admin.staff.destroy');
     });
+});
+
+Route::get('/test-email', function () {
+    try {
+        Mail::raw('Bhai, email sahi chal rahi hai!', function ($message) {
+            $message->to('hmhhbi@gmail.com')
+                ->subject('Laravel Test Email');
+        });
+        return "Email Sent Successfully!";
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
 });
 
 RateLimiter::for('tickets', function (Request $request) {
