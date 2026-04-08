@@ -186,103 +186,106 @@ new class extends Component {
       </div>
     </div>
   </div>
-  <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-    <thead class="bg-gray-50 dark:bg-gray-700">
-      <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket Info</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mood</th>
-        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Received</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-      @foreach($tickets as $ticket)
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
-          <td class="px-6 py-4">
-            <div class="text-sm font-bold text-gray-900 dark:text-white">{{ $ticket->subject }}</div>
-            <div class="text-xs text-gray-500 italic">From: {{ $ticket->user->name ?? $ticket->customer_name ?? 'Guest' }}
-            </div>
-          </td>
+  <div class="overflow-x-auto shadow-md sm:rounded-lg">
+    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+      <thead class="bg-gray-50 dark:bg-gray-700">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ticket Info</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mood</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Received</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+        @foreach($tickets as $ticket)
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-900">
+            <td class="px-6 py-4">
+              <div class="text-sm font-bold text-gray-900 dark:text-white">{{ $ticket->subject }}</div>
+              <div class="text-xs text-gray-500 italic">From:
+                {{ $ticket->user->name ?? $ticket->customer_name ?? 'Guest' }}
+              </div>
+            </td>
 
-          <td class="px-6 py-4">
-            @if(auth()->user()->role === 'admin')
-              <select wire:change="assignTicket({{ $ticket->id }}, $event.target.value)"
-                class="text-xs rounded-lg border-gray-300 dark:bg-gray-700 dark:text-gray-300 py-1">
-                <option value="">Unassigned</option>
-                @foreach(\App\Models\User::where('company_id', auth()->user()->company_id)->where('role', 'staff')->get() as $staff)
-                  <option value="{{ $staff->id }}" {{ $ticket->assigned_to == $staff->id ? 'selected' : '' }}>
-                    {{ $staff->name }}
-                  </option>
-                @endforeach
-              </select>
-            @else
-              @if($ticket->assigned_to == auth()->id())
-                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Your Task</span>
+            <td class="px-6 py-4">
+              @if(auth()->user()->role === 'admin')
+                <select wire:change="assignTicket({{ $ticket->id }}, $event.target.value)"
+                  class="text-xs rounded-lg border-gray-300 dark:bg-gray-700 dark:text-gray-300 py-1">
+                  <option value="">Unassigned</option>
+                  @foreach(\App\Models\User::where('company_id', auth()->user()->company_id)->where('role', 'staff')->get() as $staff)
+                    <option value="{{ $staff->id }}" {{ $ticket->assigned_to == $staff->id ? 'selected' : '' }}>
+                      {{ $staff->name }}
+                    </option>
+                  @endforeach
+                </select>
               @else
-                <button wire:click="claimTicket({{ $ticket->id }})"
-                  class="text-xs bg-indigo-500 text-white px-2 py-1 rounded hover:bg-indigo-600">
-                  Claim Ticket
+                @if($ticket->assigned_to == auth()->id())
+                  <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Your Task</span>
+                @else
+                  <button wire:click="claimTicket({{ $ticket->id }})"
+                    class="text-xs bg-indigo-500 text-white px-2 py-1 rounded hover:bg-indigo-600">
+                    Claim Ticket
+                  </button>
+                @endif
+              @endif
+            </td>
+
+            <td class="px-6 py-4">
+              <div class="flex flex-col gap-1">
+                <span
+                  class="px-2 py-0.5 rounded-full text-[10px] font-bold text-center uppercase {{ $ticket->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                  {{ $ticket->status }}
+                </span>
+
+                <span
+                  class="px-2 py-0.5 rounded-full text-[10px] font-bold text-center uppercase border {{ $ticket->priority_color }}">
+                  {{ $ticket->priority ?? 'Normal' }}
+                </span>
+              </div>
+            </td>
+
+            <td class="px-6 py-4">
+              @if($ticket->mood === 'negative')
+                <span class="text-red-600 text-xs font-bold">🔥 Urgent</span>
+              @elseif($ticket->mood === 'positive')
+                <span class="text-green-600 text-xs font-bold">😊 Happy</span>
+              @elseif($ticket->mood === 'neutral')
+                <span class="text-blue-600 text-xs font-bold">😐 Neutral</span>
+              @else
+                <span class="text-gray-400 text-xs">Unknown</span>
+              @endif
+            </td>
+
+            <td class="px-6 py-4 text-right space-x-2">
+              <button wire:click="viewTicket({{ $ticket->id }})"
+                class="text-indigo-600 hover:text-indigo-900 text-xs font-bold uppercase">View</button>
+              @if(auth()->user()->role === 'admin')
+                <button wire:click="deleteTicket({{ $ticket->id }})" class="text-red-500 hover:text-red-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               @endif
-            @endif
-          </td>
-
-          <td class="px-6 py-4">
-            <div class="flex flex-col gap-1">
-              <span
-                class="px-2 py-0.5 rounded-full text-[10px] font-bold text-center uppercase {{ $ticket->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
-                {{ $ticket->status }}
-              </span>
+            </td>
+            <td class="px-6 py-4 text-xs font-medium">
+              @php
+                $hoursOld = $ticket->created_at->diffInHours(now());
+              @endphp
 
               <span
-                class="px-2 py-0.5 rounded-full text-[10px] font-bold text-center uppercase border {{ $ticket->priority_color }}">
-                {{ $ticket->priority ?? 'Normal' }}
+                class="{{ ($hoursOld > 24 && $ticket->status == 'open') ? 'text-red-600 font-bold animate-pulse' : 'text-gray-500' }}">
+                {{ $ticket->created_at->diffForHumans() }}
               </span>
-            </div>
-          </td>
+            </td>
+          </tr>
+        @endforeach
 
-          <td class="px-6 py-4">
-            @if($ticket->mood === 'negative')
-              <span class="text-red-600 text-xs font-bold">🔥 Urgent</span>
-            @elseif($ticket->mood === 'positive')
-              <span class="text-green-600 text-xs font-bold">😊 Happy</span>
-            @elseif($ticket->mood === 'neutral')
-              <span class="text-blue-600 text-xs font-bold">😐 Neutral</span>
-            @else
-              <span class="text-gray-400 text-xs">Unknown</span>
-            @endif
-          </td>
-
-          <td class="px-6 py-4 text-right space-x-2">
-            <button wire:click="viewTicket({{ $ticket->id }})"
-              class="text-indigo-600 hover:text-indigo-900 text-xs font-bold uppercase">View</button>
-            @if(auth()->user()->role === 'admin')
-              <button wire:click="deleteTicket({{ $ticket->id }})" class="text-red-500 hover:text-red-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            @endif
-          </td>
-          <td class="px-6 py-4 text-xs font-medium">
-            @php
-              $hoursOld = $ticket->created_at->diffInHours(now());
-            @endphp
-
-            <span
-              class="{{ ($hoursOld > 24 && $ticket->status == 'open') ? 'text-red-600 font-bold animate-pulse' : 'text-gray-500' }}">
-              {{ $ticket->created_at->diffForHumans() }}
-            </span>
-          </td>
-        </tr>
-      @endforeach
-
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
   @if($selectedTicket)
     <div
       class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">

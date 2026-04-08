@@ -17,7 +17,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
-            'company_name' => ['required', 'string', 'max:255'],
+            'company_name' => ['required', 'string', 'max:255', 'unique:companies,name'],
         ]);
 
         $company = Company::create([
@@ -31,12 +31,13 @@ class AuthController extends Controller
             'password' => Hash::make($req->password),
             'company_id' => $company->id, // Automatic assignment
             'role' => 'admin',
+            'is_active' => false,
         ]);
 
         return response()->json([
             'status' => true,
-            'user' => $user,
-            'token' => $user->createToken('api-token')->plainTextToken
+            'message' => 'Registration successful. Please wait for admin approval.',
+            'user' => $user
         ]);
     }
 
@@ -49,6 +50,13 @@ class AuthController extends Controller
                 'status' => false,
                 'message' => 'Invalid credentials'
             ], 401);
+        }
+
+        if (!$user->is_active) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Aapka account abhi pending hai. Admin approval ka intezar karein.'
+            ], 403);
         }
 
         return response()->json([
