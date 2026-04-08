@@ -12,12 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('companies', function (Blueprint $table) {
-            // Pehle agar koi purana index hai toh usay drop karein (taake error na aaye)
-            $table->dropUnique(['name']);
-            $table->dropUnique(['slug']);
-        });
-
-        Schema::table('companies', function (Blueprint $table) {
             // Ab fresh unique constraints lagayein
             $table->string('name')->unique()->change();
             $table->string('slug')->unique()->change();
