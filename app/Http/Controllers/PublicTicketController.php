@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Company;
 use App\Models\Ticket;
+use App\Services\TicketService;
 
 class PublicTicketController extends Controller
 {
@@ -16,7 +17,7 @@ class PublicTicketController extends Controller
         return view('public.support', compact('company'));
     }
 
-    public function store(Request $request, $slug, \App\Services\TicketService $service)
+    public function store(Request $request, $slug, TicketService $service)
     {
         $company = Company::where('slug', $slug)->firstOrFail();
 
@@ -27,21 +28,9 @@ class PublicTicketController extends Controller
             'message' => 'required|min:10',
         ]);
 
-        $aiReply = $service->getAiDraft($validated['message']);
+        // Aik line mein kaam tamam!
+        $service->createTicket($validated, null, $company->id);
 
-        // Hum TicketService use karenge lekin thori tabdeeli ke saath
-        // Kyunki guest user ke paas User ID nahi hoti
-        Ticket::create([
-            'subject' => $validated['subject'],
-            'message' => $validated['message'],
-            'company_id' => $company->id,
-            'status' => 'open',
-            'ai_suggestion' => $aiReply,
-            'customer_name' => $validated['name'], // Ye columns migration mein add karne honge
-            'customer_email' => $validated['email'],
-            'user_id' => null,
-        ]);
-
-        return back()->with('status', 'Your ticket has been submitted! Our team will contact you.');
+        return back()->with('status', 'Ticket submitted!');
     }
 }

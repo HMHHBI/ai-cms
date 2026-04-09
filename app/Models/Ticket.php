@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class Ticket extends Model
 {
@@ -19,6 +20,16 @@ class Ticket extends Model
         'assigned_to',
         'company_id',
     ];
+
+    protected static function booted()
+    {
+        static::addGlobalScope('company', function ($builder) {
+            // Agar user super_admin nahi hai, toh hamesha uski company ke tickets dikhao
+            if (Auth::check() && Auth::user()->role !== 'super_admin') {
+                $builder->where('tickets.company_id', Auth::user()->company_id);
+            }
+        });
+    }
 
     public function user()
     {

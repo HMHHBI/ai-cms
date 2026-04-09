@@ -36,48 +36,45 @@ class TicketService
       ->get();
   }
 
-  public function createTicket($user, array $data)
+  public function createTicket($data, $user = null, $companyId = null)
   {
-    // 1. AI Suggestion & Sentiment Prompt
-    $prompt = "Analyze this support ticket: '{$data['message']}'. 
-    1. Write a professional reply.
-    2. Determine Sentiment (Positive, Negative, or Neutral).
-    3. Determine Priority (High, Medium, or Low).
-    
-    IMPORTANT: You MUST end your response exactly like this:
-    Sentiment: [Value]
-    Priority: [Value] 
-    Do not use bold stars or extra words.";
-                   
+    // 1. Logic: Agar user login hai toh uski company, warna public slug se aayi hui ID
+    $finalCompanyId = $user ? $user->company_id : $companyId;
+    $finalUserId = $user ? $user->id : null;
+
+    // 2. Advanced Prompt
+    $prompt = "Act as a support bot. Analyze: '{$data['message']}'.
+    Return ONLY a JSON object with these keys:
+    'reply': (professional response),
+    'sentiment': (positive/negative/neutral),
+    'priority': (high/medium/low)";
+
     try {
-      $aiReply = $this->gemini->generateResponse($prompt);
+      $aiResponse = $this->gemini->generateResponse($prompt);
+      // JSON clean up (kabhi kabhi AI markdown ```json ... ``` bhej deta hai)
+      $cleanJson = preg_replace('/```json|```/', '', $aiResponse);
+      $result = json_decode($cleanJson, true);
 
-      // --- EXTRACTION LOGIC START ---
-      // Hum Regex ke zariye text mein se Sentiment aur Priority nikaal rahe hain
-      preg_match('/Sentiment:\s*(\w+)/i', $aiReply, $sentimentMatch);
-      preg_match('/Priority:\s*(\w+)/i', $aiReply, $priorityMatch);
-
-      $detectedSentiment = isset($sentimentMatch[1]) ? strtolower($sentimentMatch[1]) : 'neutral';
-      $detectedPriority = isset($priorityMatch[1]) ? strtolower($priorityMatch[1]) : 'medium';
-      // --- EXTRACTION LOGIC END ---
+      $aiReply = $result['reply'] ?? "Thanks for contacting us.";
+      $detectedSentiment = $result['sentiment'] ?? 'neutral';
+      $detectedPriority = $result['priority'] ?? 'medium';
     } catch (\Exception $e) {
-      $aiReply = "AI is currently unavailable. Our team will get back to you soon.";
+      $aiReply = "Our team will assist you shortly.";
       $detectedSentiment = 'neutral';
       $detectedPriority = 'medium';
     }
 
-    // 2. Create Ticket in Database
     return Ticket::create([
-      'user_id' => $user->id,
-      'customer_name' => $data['customer_name'] ?? ($user ? $user->name : 'Guest'), // 👈 Save Name
-      'customer_email' => $data['customer_email'] ?? ($user ? $user->email : null),   // 👈 Save Email
+      'user_id' => $finalUserId,
+      'company_id' => $finalCompanyId,
+      'customer_name' => $data['customer_name'] ?? $data['name'] ?? 'Guest',
+      'customer_email' => $data['customer_email'] ?? $data['email'] ?? null,
       'subject' => $data['subject'],
       'message' => $data['message'],
       'ai_suggestion' => $aiReply,
       'ai_sentiment' => $detectedSentiment,
       'priority' => $detectedPriority,
       'status' => 'open',
-      'company_id' => $user->company_id,
     ]);
   }
 
