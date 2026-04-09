@@ -14,6 +14,16 @@
             <p class="text-indigo-600 font-medium">{{ $company->name }}</p>
         </div>
 
+        @if ($errors->any())
+    <div class="bg-red-100 text-red-700 p-4 mb-4 rounded">
+        <ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
         @if(session('status'))
             <div class="mb-4 p-4 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
                 {{ session('status') }}

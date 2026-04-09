@@ -42,6 +42,8 @@ new class extends Component {
 
   public function with(\App\Services\TicketService $query)
   {
+    $staffMembers = \App\Models\User::where('company_id', Auth::user()->company_id)
+      ->where('role', 'staff')->get();
     // Base Query fetch karein
     $query = Ticket::where('company_id', Auth::user()->company_id);
 
@@ -74,7 +76,10 @@ new class extends Component {
       });
     }
 
-    return ['tickets' => $query->latest()->get()];
+    return [
+      'tickets' => $query->latest()->get(),
+      'staffMembers' => $staffMembers
+    ];
   }
 
   public function approveAndSend($ticketId)
@@ -186,7 +191,8 @@ new class extends Component {
       </div>
     </div>
   </div>
-  <div class="overflow-x-auto shadow-md sm:rounded-lg">
+  {{-- Table (Hidden on Mobile) --}}
+  <div class="hidden md:block">
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
       <thead class="bg-gray-50 dark:bg-gray-700">
         <tr>
@@ -213,7 +219,7 @@ new class extends Component {
                 <select wire:change="assignTicket({{ $ticket->id }}, $event.target.value)"
                   class="text-xs rounded-lg border-gray-300 dark:bg-gray-700 dark:text-gray-300 py-1">
                   <option value="">Unassigned</option>
-                  @foreach(\App\Models\User::where('company_id', auth()->user()->company_id)->where('role', 'staff')->get() as $staff)
+                  @foreach($staffMembers as $staff)
                     <option value="{{ $staff->id }}" {{ $ticket->assigned_to == $staff->id ? 'selected' : '' }}>
                       {{ $staff->name }}
                     </option>
@@ -285,6 +291,65 @@ new class extends Component {
 
       </tbody>
     </table>
+  </div>
+  {{-- Cards (Visible only on Mobile) --}}
+  <div class="md:hidden space-y-4 p-4">
+    @foreach($tickets as $ticket)
+      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 {{ $ticket->priority_color }}">
+        <div class="flex justify-between items-start">
+          <div>
+            <h4 class="font-bold text-gray-800">{{ $ticket->subject }}</h4>
+            <p class="text-[10px] text-gray-500 italic">From: {{ $ticket->customer_name ?? 'Guest' }}</p>
+          </div>
+          {{-- Mood Badge --}}
+          <span class="text-xs">
+            {{ $ticket->mood === 'negative' ? '🔥' : ($ticket->mood === 'positive' ? '😊' : '😐') }}
+          </span>
+        </div>
+
+        <div class="mt-3 flex justify-between items-center text-[10px]">
+          <span class="px-2 py-0.5 rounded-full bg-gray-100 font-bold uppercase">{{ $ticket->status }}</span>
+          <button wire:click="viewTicket({{ $ticket->id }})" class="text-indigo-600 font-bold uppercase">View
+            Details</button>
+        </div>
+
+        <div class="mt-3 flex justify-between items-center text-[10px]">
+          <span class="px-2 py-0.5 rounded-full bg-gray-100 font-bold uppercase">{{ $ticket->priority }}</span>
+          @if(auth()->user()->role === 'admin')
+            <button wire:click="deleteTicket({{ $ticket->id }})" class="text-red-500 hover:text-red-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          @endif
+        </div>
+
+        <div class="mt-3 flex justify-end items-center text-[10px]">
+          @if(auth()->user()->role === 'admin')
+            <select wire:change="assignTicket({{ $ticket->id }}, $event.target.value)"
+              class="text-xs rounded-lg border-gray-300 dark:bg-gray-700 dark:text-gray-300 py-1">
+              <option value="">Unassigned</option>
+              @foreach($staffMembers as $staff)
+                <option value="{{ $staff->id }}" {{ $ticket->assigned_to == $staff->id ? 'selected' : '' }}>
+                  {{ $staff->name }}
+                </option>
+              @endforeach
+            </select>
+          @else
+            @if($ticket->assigned_to == auth()->id())
+              <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Your Task</span>
+            @else
+              <button wire:click="claimTicket({{ $ticket->id }})"
+                class="text-xs bg-indigo-500 text-white px-2 py-1 rounded hover:bg-indigo-600">
+                Claim Ticket
+              </button>
+            @endif
+          @endif
+        </div>
+      </div>
+    @endforeach
   </div>
   @if($selectedTicket)
     <div
